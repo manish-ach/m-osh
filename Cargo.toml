@@ -1,0 +1,9 @@
+[package]
+name = "mosh"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+chrono = "0.4.39"
+any_terminal_size = "0.1.21"
+crossterm = "0.28.1"
