@@ -2,21 +2,36 @@ use any_terminal_size::{any_terminal_size, Width};
 use chrono::{DateTime, Local};
 use crossterm::{
     cursor::MoveUp,
+    execute,
+    style::{Print, ResetColor, SetForegroundColor, Stylize},
     terminal::{self, Clear},
     ExecutableCommand,
 };
 use std::{
-    env,
-    io::{self, Write},
+    env::{self, current_dir},
+    io::{self, stdout, Write},
     path::Path,
     process::Command,
 };
 
-fn main() {
+fn clear_screen() {
     Command::new("clear")
         .status()
         .expect("Please Use a posix compliant shell as default for smooth experience");
+}
 
+fn main() -> Result<(), std::io::Error> {
+    clear_screen();
+    println!();
+
+    execute!(
+        stdout(),
+        SetForegroundColor(crossterm::style::Color::DarkRed),
+        Print("Welcome to m-osh (my-own shell)"),
+        ResetColor
+    )?;
+
+    println!("\n\n");
     loop {
         io::stdout()
             .execute(MoveUp(1))
@@ -24,8 +39,11 @@ fn main() {
             .execute(Clear(terminal::ClearType::FromCursorDown))
             .unwrap();
 
+        let dir = current_dir().unwrap();
+        let dir_str = dir.display().to_string();
         let now: DateTime<Local> = Local::now();
-        let left_part = "@m-osh | [m-corp]";
+        let logo = "@m-osh | ";
+        let left_part = format!("{}{}", logo, dir_str);
         let right_part = now.format("%Y-%m-%d %H:%M:%S").to_string();
 
         let terminal_width = match any_terminal_size() {
@@ -34,23 +52,34 @@ fn main() {
         };
 
         let padding = terminal_width as usize - left_part.len() - right_part.len();
+        let rht2 = format!("{:>width$}", right_part, width = padding + right_part.len());
 
-        println!(
-            "{}{:>width$}",
-            left_part,
-            right_part,
-            width = padding + right_part.len()
-        );
+        println!("{}{}{}", logo.green(), dir_str.blue(), rht2.dark_yellow());
         print!("|-> ");
         io::stdout().flush().unwrap();
 
         let mut input = String::new();
         io::stdin().read_line(&mut input).expect("error in input");
+        if input.is_empty() {
+            println!("\n");
+            continue;
+        }
+
         let mut all_command = input.trim().split_whitespace();
-        let command = all_command.next().unwrap();
+        let command = match all_command.next() {
+            Some(cmd) => cmd,
+            None => {
+                println!("\n");
+                continue;
+            }
+        };
         let args = all_command;
 
         match command {
+            "exit" => {
+                clear_screen();
+                return Ok(());
+            }
             "cd" => {
                 let new_dir = args.peekable().peek().map_or("/Users/manish-ach/", |x| *x);
                 let root = Path::new(new_dir);
@@ -67,12 +96,10 @@ fn main() {
                             eprintln!("{}", e);
                         }
                     }
-                    Err(e) => eprintln!("{}", e),
+                    Err(_) => print!(""),
                 }
             }
-            "exit" => return,
         }
-
         println!("\n");
     }
 }
